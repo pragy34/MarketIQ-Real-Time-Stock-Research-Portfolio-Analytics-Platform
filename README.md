@@ -1,9 +1,44 @@
+<div align="center">
+
 # MarketLens
 
-Live equity research terminal: stock screening, peer comparison, relative
-valuation, movers/heatmap, NSE indices (incl. India VIX), watchlist, and
-portfolio tracking — FastAPI + yfinance backend, vanilla JS frontend with a
-classic finance-terminal aesthetic (near-black, amber accent, IBM Plex Mono).
+**A live NSE equity research terminal** — screening, peer comparison, relative
+valuation, sector heatmaps, real-time indices, watchlists, and portfolio
+analytics, wrapped in a Bloomberg-style near-black/amber terminal UI.
+
+[![Live App](https://img.shields.io/badge/Live%20App-market--iq--real--time--stock--research.vercel.app-E8A017?style=for-the-badge&logo=vercel&logoColor=white)](https://market-iq-real-time-stock-research.vercel.app)
+[![API](https://img.shields.io/badge/API-Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://marketiq-real-time-stock-research-3vw4.onrender.com/api/status)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
+
+[![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](backend/requirements.txt)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi&logoColor=white)](backend/main.py)
+[![yfinance](https://img.shields.io/badge/Data-yfinance-8A9A8E?style=flat-square)](backend/downloader.py)
+[![Chart.js](https://img.shields.io/badge/Charts-Chart.js-FF6384?style=flat-square&logo=chartdotjs&logoColor=white)](frontend/js/charts.js)
+[![Tests](https://img.shields.io/badge/Tests-26%20passing-3DDC97?style=flat-square)](#tests)
+
+**[🔴 Launch the live terminal →](https://market-iq-real-time-stock-research.vercel.app)**
+
+</div>
+
+---
+
+## Live deployment
+
+| Layer | Provider | URL |
+|---|---|---|
+| **Frontend** | Vercel | **[market-iq-real-time-stock-research.vercel.app](https://market-iq-real-time-stock-research.vercel.app)** |
+| **Backend API** | Render | [marketiq-real-time-stock-research-3vw4.onrender.com](https://marketiq-real-time-stock-research-3vw4.onrender.com) |
+| **API health** | Render | [/api/status](https://marketiq-real-time-stock-research-3vw4.onrender.com/api/status) |
+| **API docs (Swagger)** | Render | [/docs](https://marketiq-real-time-stock-research-3vw4.onrender.com/docs) |
+| **Source** | GitHub | [pragy34/MarketIQ-Real-Time-Stock-Research-Portfolio-Analytics-Platform](https://github.com/pragy34/MarketIQ-Real-Time-Stock-Research-Portfolio-Analytics-Platform) |
+
+> **Note:** the backend runs on Render's free tier, which sleeps after ~15
+> minutes of inactivity. The first request after a period of idle time can
+> take 30–50 seconds to wake up — after that it's fast until it idles out
+> again. This is a hosting-tier tradeoff, not an application issue; the
+> seed-data fallback below means the UI is never empty even mid-wakeup.
+
+## Architecture
 
 ```
 Yahoo Finance (yfinance)
@@ -24,6 +59,18 @@ REST API (JSON) — /api/*
         ▼
 Frontend (terminal UI + Chart.js) — /  or Vercel static
 ```
+
+## Preview
+
+<div align="center">
+
+| Screener | Portfolio |
+|---|---|
+| Live filters, sortable columns, click any row for a detail modal with a price chart | CSV upload → invested/current value, return %, XIRR, sector allocation |
+
+*Terminal aesthetic: near-black base, amber accent, IBM Plex Mono / Libre Baskerville — built to feel like a real desk tool, not a template.*
+
+</div>
 
 ## Quick start (local)
 
@@ -124,42 +171,66 @@ to replace; "Clear" wipes it.
 ## Deployment (recommended: split)
 
 Vercel serverless cannot host the long-running uvicorn process, background
-refresh loop, or durable local SQLite. Deploy like this:
+refresh loop, or durable local SQLite. This project runs split — **Render
+for the API, Vercel for the static frontend** — as shown in the
+[live deployment table](#live-deployment) above. Railway and Fly.io work
+identically if you'd rather use those.
 
-### 1. Backend → Railway (or Render / Fly.io)
+### 1. Backend → Render
 
-**Railway**
+1. **New → Web Service** (not Blueprint — Blueprint defaults to a paid
+   instance type unless `render.yaml` pins `plan: free` *and* you deploy via
+   the Blueprint flow specifically).
+2. Root Directory: `backend`. Build: `pip install -r requirements.txt`.
+   Start: `uvicorn main:app --host 0.0.0.0 --port $PORT`.
+3. Instance Type: **Free**.
+4. Environment variables:
+   ```
+   PYTHON_VERSION=3.11.9
+   CORS_ORIGINS=https://your-app.vercel.app   (no trailing slash)
+   COOKIE_SAMESITE=none
+   COOKIE_SECURE=true
+   ```
+   `PYTHON_VERSION` matters more than it looks: Render's default Python is
+   whatever's newest, which frequently has no prebuilt `pandas` wheel yet —
+   pip then tries to compile it from source and can hang for 10+ minutes.
+   Pinning `3.11.9` (also set via `backend/.python-version` in this repo)
+   sidesteps that entirely.
+5. Create the service, wait for `Build successful` → `Your service is live`,
+   then confirm `https://your-service.onrender.com/api/status` returns JSON.
 
-1. Create a new project from this repo; set root directory to `backend/`.
-2. `backend/Procfile` / `backend/railway.json` start `uvicorn main:app`.
-3. Set env vars:
-   - `CORS_ORIGINS=https://your-app.vercel.app` (no trailing slash)
-   - `COOKIE_SAMESITE=none`
-   - `COOKIE_SECURE=true`
-4. Attach a persistent volume if you want SQLite/cache to survive restarts
-   (or accept ephemeral disk for a demo — the seed file re-bootstraps a
-   usable cache on every cold start regardless).
+Same steps apply to **Railway** (`backend/railway.json` / `Procfile`) or
+**Fly.io** (`backend/fly.toml` — `fly launch --name marketlens-api
+--no-deploy && fly secrets set CORS_ORIGINS=... COOKIE_SAMESITE=none
+COOKIE_SECURE=true && fly deploy`) if you prefer either of those instead.
 
-**Render** — see root `render.yaml` (set `CORS_ORIGINS` in the dashboard).
-
-**Fly.io**:
-
-```bash
-cd backend
-fly launch --name marketlens-api --no-deploy
-fly secrets set CORS_ORIGINS=https://your-app.vercel.app COOKIE_SAMESITE=none COOKIE_SECURE=true
-fly deploy
-```
+> Free-tier caveat: Render (and Railway's Hobby tier) sleep an idle service
+> after ~15 minutes. First request after that takes 30–50s to wake up.
 
 ### 2. Frontend → Vercel
 
-1. Import the repo; set **Root Directory** to `frontend/`.
+1. Import the repo; set **Root Directory** to `frontend`.
 2. Framework Preset: Other. Build uses `frontend/vercel.json`.
 3. Set env var `MARKETLENS_API_BASE` to your backend URL, e.g.
-   `https://marketlens-api.up.railway.app` (no trailing slash).
+   `https://marketiq-real-time-stock-research-3vw4.onrender.com`
+   (no trailing slash).
 4. Deploy. The build injects that URL into `js/config.js`.
+5. Copy the resulting Vercel URL and go back to your backend host to set
+   `CORS_ORIGINS` to it exactly — this is the step people most often forget,
+   and without it every API call fails with a CORS error in the browser
+   console.
 
 Local same-origin serving still works with an empty `MARKETLENS_API_BASE`.
+
+### Verifying a fresh deploy
+
+1. Open the Vercel URL, DevTools → Console: no CORS errors.
+2. DevTools → Network: API calls hit your backend domain and return `200`.
+3. DevTools → Application → Cookies: `ml_session` is set (proves the
+   cross-origin session cookie — and therefore watchlist/portfolio
+   persistence — is actually working, not just page rendering).
+4. Add a ticker to the Watchlist, refresh the page, confirm it's still there.
+5. Upload `sample_portfolio.csv` on the Portfolio tab, confirm it summarizes.
 
 ### Vercel-only (not recommended)
 
@@ -201,3 +272,13 @@ MarketLens/
 
 News/AI summaries/PDF export, Screener.in scraping, full candlestick/RSI/MACD
 kits, and a 5,000-stock NSE universe — each is a separate project.
+
+---
+
+<div align="center">
+
+**[🔴 Launch the live terminal →](https://market-iq-real-time-stock-research.vercel.app)**
+
+Licensed under [MIT](LICENSE) · Data via [yfinance](https://github.com/ranaroussi/yfinance) (unofficial, best-effort) · Not investment advice.
+
+</div>
