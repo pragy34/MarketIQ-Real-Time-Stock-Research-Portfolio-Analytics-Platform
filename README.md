@@ -16,7 +16,7 @@ analytics, wrapped in a Bloomberg-style near-black/amber terminal UI.
 [![Chart.js](https://img.shields.io/badge/Charts-Chart.js-FF6384?style=flat-square&logo=chartdotjs&logoColor=white)](frontend/js/charts.js)
 [![Tests](https://img.shields.io/badge/Tests-26%20passing-3DDC97?style=flat-square)](#tests)
 
-**[🔴 Launch the live terminal →](https://market-iq-real-time-stock-research.vercel.app)**
+**[🔴 Launch the live terminal →](https://marketiq-real-time-stock-research-3vw4.onrender.com)**
 
 </div>
 
